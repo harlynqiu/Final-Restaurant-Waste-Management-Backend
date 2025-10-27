@@ -1,0 +1,10 @@
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import TrashPickupViewSet
+
+router = DefaultRouter()
+router.register(r'trash_pickups', TrashPickupViewSet, basename='trashpickup')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]

@@ -52,3 +52,5 @@ class RewardRedemption(models.Model):
 
     def __str__(self):
         return f"{self.user.username} redeemed {self.voucher.name}"
+    
+    

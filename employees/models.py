@@ -8,6 +8,8 @@ class Employee(models.Model):
     position = models.CharField(max_length=100)
     date_started = models.DateField()
     remarks = models.TextField(blank=True, null=True)
+    restaurant_name = models.CharField(max_length=150, blank=True, null=True)
+    address = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(
         max_length=20,
         choices=[("active", "Active"), ("inactive", "Inactive")],

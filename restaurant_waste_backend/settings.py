@@ -32,8 +32,8 @@ INSTALLED_APPS = [
     'employees',
     'trash_pickups',
     'rewards',
-    'subscriptions',
     'donations',
+    'subscriptions',
 ]
 
 MIDDLEWARE = [

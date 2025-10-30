@@ -1,11 +1,7 @@
-# employees/urls.py
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import EmployeeViewSet, EmployeeRegisterView
+from rest_framework import routers
+from .views import EmployeeViewSet
 
-router = DefaultRouter()
-router.register(r'employees', EmployeeViewSet, basename='employees')
+router = routers.DefaultRouter()
+router.register(r'employees', EmployeeViewSet, basename='employee')
 
-urlpatterns = [
-    path('employees/register/', EmployeeRegisterView.as_view(), name='employee-register'),
-] + router.urls
+urlpatterns = router.urls

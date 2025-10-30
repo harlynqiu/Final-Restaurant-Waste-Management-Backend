@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from trash_pickups.models import TrashPickup
+
 
 
 # --------------------------------------------
@@ -26,7 +26,13 @@ class RewardPoint(models.Model):
 # --------------------------------------------
 class RewardTransaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reward_transactions')
-    pickup = models.ForeignKey(TrashPickup, on_delete=models.CASCADE, null=True, blank=True)
+    pickup = models.ForeignKey(
+        "trash_pickups.TrashPickup",  # ← string-based reference
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="reward_transactions"
+    )
     points = models.IntegerField()
     description = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

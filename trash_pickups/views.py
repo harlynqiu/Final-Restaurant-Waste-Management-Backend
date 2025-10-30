@@ -1,96 +1,81 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from django.utils import timezone
 from .models import TrashPickup
 from .serializers import TrashPickupSerializer
 from rewards.models import RewardPoint, RewardTransaction
-from datetime import datetime
+from donations.models import DonationDrive
+
 
 class TrashPickupViewSet(viewsets.ModelViewSet):
+    """
+    Handles CRUD for Trash Pickups.
+    Automatically associates the logged-in user and optional donation drive.
+    Includes reward logic for completed pickups.
+    """
     serializer_class = TrashPickupSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # -------------------------------------
-    # Return only the logged-in user's pickups
-    # -------------------------------------
     def get_queryset(self):
+        """Return pickups belonging only to the logged-in user."""
         return TrashPickup.objects.filter(user=self.request.user).order_by('-created_at')
 
-    # -------------------------------------
-    # Create a new pickup (auto-assign user)
-    # -------------------------------------
+    # --------------------------------------------------------
+    # 🟢 CREATE PICKUP
+    # --------------------------------------------------------
     def perform_create(self, serializer):
-        data = self.request.data.copy()
-        scheduled_date = data.get("scheduled_date")
+        """When creating a pickup, include the user and donation drive if provided."""
+        donation_drive_id = self.request.data.get("donation_drive")
+        donation_drive = None
 
-        # 🕒 Validate and convert scheduled_date if needed
-        if scheduled_date:
+        if donation_drive_id:
             try:
-                # If it's not in ISO format (no "T"), assume it's "YYYY-MM-DD HH:MM"
-                if "T" not in scheduled_date:
-                    scheduled_date = datetime.strptime(
-                        scheduled_date, "%Y-%m-%d %H:%M"
-                    ).isoformat()
-            except Exception:
-                raise ValueError(
-                    "Invalid scheduled_date format. Use ISO 8601 (e.g. 2025-10-30T18:00:00Z)."
-                )
-
-        # ✅ Save the pickup with the cleaned date and user
-        serializer.save(user=self.request.user, scheduled_date=scheduled_date)
-
-    # -------------------------------------
-    # Update (for status changes, etc.)
-    # -------------------------------------
-    def update(self, request, *args, **kwargs):
-        scheduled_date = request.data.get('scheduled_date')
-
-        # ✅ Validate scheduled date if present
-        if scheduled_date:
-            try:
-                parsed_date = timezone.datetime.fromisoformat(scheduled_date.replace('Z', '+00:00'))
-                if parsed_date < timezone.now():
-                    return Response(
-                        {"error": "Scheduled date cannot be in the past."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            except Exception:
+                donation_drive = DonationDrive.objects.get(id=donation_drive_id, is_active=True)
+            except DonationDrive.DoesNotExist:
                 return Response(
-                    {"error": "Invalid scheduled_date format. Use ISO 8601."},
-                    status=status.HTTP_400_BAD_REQUEST
+                    {"error": f"Donation Drive with id {donation_drive_id} not found or inactive."},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # ✅ Save update (e.g. cancelled or completed)
-        pickup = self.get_object()
-        response = super().update(request, *args, **kwargs)
+        serializer.save(user=self.request.user, donation_drive=donation_drive)
 
-        # 🟢 Reward logic for completion
+    # --------------------------------------------------------
+    # 🟢 UPDATE PICKUP (REWARD LOGIC)
+    # --------------------------------------------------------
+    def perform_update(self, serializer):
+        """When pickup is marked completed, reward points are given."""
+        pickup = serializer.save()
+
         if pickup.status == "completed":
+            # 🏆 Add points to user's total
             reward, _ = RewardPoint.objects.get_or_create(user=pickup.user)
-            reward.add_points(10)
+            reward.add_points(10)  # Example: 10 pts per completed pickup
+
+            # 💰 Record transaction
             RewardTransaction.objects.create(
                 user=pickup.user,
                 pickup=pickup,
                 points=10,
-                description="Completed a trash pickup"
+                description=f"Completed pickup ({pickup.waste_type})"
             )
 
-        return response
+    # --------------------------------------------------------
+    # 🟢 OVERRIDE CREATE TO HANDLE INVALID DRIVE SAFELY
+    # --------------------------------------------------------
+    def create(self, request, *args, **kwargs):
+        """
+        Override create() to safely handle invalid donation drives
+        and ensure proper HTTP responses.
+        """
+        donation_drive_id = request.data.get("donation_drive")
 
-    # -------------------------------------
-    # PATCH: Quick status updates (e.g. cancel)
-    # -------------------------------------
-    def partial_update(self, request, *args, **kwargs):
-        pickup = self.get_object()
-        status_value = request.data.get("status")
+        # Validate donation drive first
+        if donation_drive_id:
+            try:
+                DonationDrive.objects.get(id=donation_drive_id)
+            except DonationDrive.DoesNotExist:
+                return Response(
+                    {"donation_drive": [f"Invalid pk '{donation_drive_id}' - object does not exist."]},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-        # ✅ Handle cancellation immediately
-        if status_value and status_value.lower() == "cancelled":
-            pickup.status = "cancelled"
-            pickup.save()
-            return Response(
-                {"message": "Pickup cancelled successfully", "id": pickup.id},
-                status=status.HTTP_200_OK
-            )
-
-        return super().partial_update(request, *args, **kwargs)
+        return super().create(request, *args, **kwargs)

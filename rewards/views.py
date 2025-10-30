@@ -8,7 +8,9 @@ from .serializers import (
     VoucherSerializer,
     RewardRedemptionSerializer
 )
-
+from rewards.models import Voucher
+from django.db import models
+#from django.contrib.auth.models import User
 
 # 🟢 View Points
 class RewardPointView(generics.RetrieveAPIView):
@@ -27,6 +29,7 @@ class RewardTransactionListView(generics.ListAPIView):
 
     def get_queryset(self):
         return RewardTransaction.objects.filter(user=self.request.user).order_by('-created_at')
+
 
 
 # 🎁 View Available Vouchers

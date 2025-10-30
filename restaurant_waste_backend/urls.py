@@ -11,7 +11,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/', include('trash_pickups.urls')),  # example of your APIs
     path('api/rewards/', include('rewards.urls')),
-    path('api/subscriptions/', include('subscriptions.urls')),
+    path("api/subscriptions/", include("subscriptions.urls")),
     path("api/donations/", include("donations.urls")),
     path("api/employees/", include("employees.urls")), 
     path('api/', include('employees.urls')),

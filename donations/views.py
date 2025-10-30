@@ -12,9 +12,9 @@ from .serializers import DonationDriveSerializer, DonationParticipationSerialize
 # 🌍 List all active donation drives
 # ------------------------------------------
 class DonationDriveViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = DonationDrive.objects.all().order_by("-start_date")
+    queryset = DonationDrive.objects.filter(is_active=True)
     serializer_class = DonationDriveSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         today = timezone.now().date()

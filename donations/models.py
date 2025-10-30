@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-from rewards.models import RewardPoint
 
 
 # --------------------------------------------------------
@@ -53,8 +52,9 @@ class DonationParticipation(models.Model):
         self.status = "completed"
         self.save()
 
-        # 🏆 Award reward points
+        # 🏆 Lazy import to avoid circular dependency
         try:
+            from rewards.models import RewardPoint  # 👈 import inside method
             reward, _ = RewardPoint.objects.get_or_create(user=self.user)
             reward.add_points(
                 amount=20,  # 🎁 Default reward for each donation

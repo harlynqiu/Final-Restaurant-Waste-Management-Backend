@@ -13,4 +13,5 @@ urlpatterns = [
     path('subscribe/', SubscribeToPlanView.as_view(), name='subscribe-plan'),
     path('cancel/', CancelSubscriptionView.as_view(), name='cancel-subscription'),
     path('payments/', MyPaymentsView.as_view(), name='my-payments'),
+    
 ]

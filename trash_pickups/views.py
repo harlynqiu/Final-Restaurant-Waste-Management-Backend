@@ -4,7 +4,7 @@ from django.utils import timezone
 from .models import TrashPickup
 from .serializers import TrashPickupSerializer
 from rewards.models import RewardPoint, RewardTransaction
-
+from datetime import datetime
 
 class TrashPickupViewSet(viewsets.ModelViewSet):
     serializer_class = TrashPickupSerializer
@@ -20,18 +20,24 @@ class TrashPickupViewSet(viewsets.ModelViewSet):
     # Create a new pickup (auto-assign user)
     # -------------------------------------
     def perform_create(self, serializer):
-        scheduled_date = self.request.data.get('scheduled_date')
+        data = self.request.data.copy()
+        scheduled_date = data.get("scheduled_date")
 
-        # Optional validation — prevent past scheduling
+        # 🕒 Validate and convert scheduled_date if needed
         if scheduled_date:
             try:
-                parsed_date = timezone.datetime.fromisoformat(scheduled_date.replace('Z', '+00:00'))
-                if parsed_date < timezone.now():
-                    raise ValueError("Scheduled date cannot be in the past.")
+                # If it's not in ISO format (no "T"), assume it's "YYYY-MM-DD HH:MM"
+                if "T" not in scheduled_date:
+                    scheduled_date = datetime.strptime(
+                        scheduled_date, "%Y-%m-%d %H:%M"
+                    ).isoformat()
             except Exception:
-                raise ValueError("Invalid scheduled_date format. Use ISO 8601.")
+                raise ValueError(
+                    "Invalid scheduled_date format. Use ISO 8601 (e.g. 2025-10-30T18:00:00Z)."
+                )
 
-        serializer.save(user=self.request.user)
+        # ✅ Save the pickup with the cleaned date and user
+        serializer.save(user=self.request.user, scheduled_date=scheduled_date)
 
     # -------------------------------------
     # Update (for status changes, etc.)

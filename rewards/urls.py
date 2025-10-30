@@ -4,7 +4,8 @@ from .views import (
     RewardTransactionListView,
     VoucherListView,
     RedeemVoucherView,
-    RewardRedemptionListView
+    RewardRedemptionListView,
+    MyRewardsListView
 )
 
 urlpatterns = [
@@ -13,4 +14,5 @@ urlpatterns = [
     path('vouchers/', VoucherListView.as_view(), name='voucher-list'),
     path('redeem/', RedeemVoucherView.as_view(), name='redeem-voucher'),
     path('redemptions/', RewardRedemptionListView.as_view(), name='redemption-list'),
+    path('my_rewards/', MyRewardsListView.as_view(), name='my_rewards')
 ]

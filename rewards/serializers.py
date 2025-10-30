@@ -25,4 +25,4 @@ class RewardRedemptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RewardRedemption
-        fields = ['id', 'voucher', 'redeemed_at', 'is_used']
+        fields = ['id', 'voucher', 'created_at', 'is_used']

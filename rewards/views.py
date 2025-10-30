@@ -1,7 +1,7 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import RewardPoint, RewardTransaction
+from .models import RewardPoint, RewardTransaction, RewardRedemption
 from .serializers import (
     RewardPointSerializer,
     RewardTransactionSerializer,
@@ -75,4 +75,13 @@ class RewardRedemptionListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return RewardRedemption.objects.filter(user=self.request.user).order_by('-redeemed_at')
+        return RewardRedemption.objects.filter(user=self.request.user).order_by('-created_at')
+
+
+class MyRewardsListView(generics.ListAPIView):
+    serializer_class = RewardRedemptionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return RewardRedemption.objects.filter(user=self.request.user).order_by('-created_at')
+

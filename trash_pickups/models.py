@@ -1,7 +1,5 @@
-# trash_pickups/models.py
 from django.db import models
 from django.contrib.auth.models import User
-
 
 
 class TrashPickup(models.Model):
@@ -13,17 +11,36 @@ class TrashPickup(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='trash_pickups')
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='trash_pickups'
+    )
     restaurant_name = models.CharField(max_length=255)
     waste_type = models.CharField(max_length=100)
     weight_kg = models.DecimalField(max_digits=8, decimal_places=2)
+
+    # ✅ Restaurant address (also used as pickup address)
     pickup_address = models.CharField(max_length=255)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    # ✅ Optional scheduled date and time
+    scheduled_date = models.DateTimeField(null=True, blank=True)
+
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='pending'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+
+        if not self.pickup_address:
+            self.pickup_address = self.restaurant_name
+        else:
+            # Always ensure both match
+            self.restaurant_name = self.pickup_address
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.restaurant_name} - {self.status}"
-
 
 
 # --------------------------------------------
@@ -39,8 +56,6 @@ class Voucher(models.Model):
     def __str__(self):
         return f"{self.name} - {self.points_required} pts"
 
-
-
 # --------------------------------------------
 # 🎟️ Reward Redemption Record
 # --------------------------------------------
@@ -52,5 +67,3 @@ class RewardRedemption(models.Model):
 
     def __str__(self):
         return f"{self.user.username} redeemed {self.voucher.name}"
-    
-    

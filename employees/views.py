@@ -3,6 +3,7 @@ from rest_framework import viewsets, permissions, status, generics
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from .models import Employee
 from .serializers import EmployeeSerializer
 
@@ -24,27 +25,61 @@ class EmployeeRegisterView(generics.CreateAPIView):
         address = data.get("address", "")
         name = data.get("name", username)  # fallback if not provided
 
-        # 1️⃣ Create user first
+        # 1️⃣ Validate required fields
         if not username or not password:
-            return Response({"detail": "Username and password are required."}, status=400)
+            return Response(
+                {"detail": "Username and password are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         if User.objects.filter(username=username).exists():
-            return Response({"detail": "Username already exists."}, status=400)
+            return Response(
+                {"detail": "Username already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        user = User.objects.create_user(username=username, email=email, password=password)
+        if email and Employee.objects.filter(email=email).exists():
+            return Response(
+                {"detail": "An account with this email already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # 2️⃣ Create employee profile
-        employee = Employee.objects.create(
-            user=user,
-            name=name,
-            position=data.get("position", "Staff"),
-            date_started=data.get("date_started", "2025-01-01"),
-            restaurant_name=restaurant_name,
-            address=address,
-        )
+        # 2️⃣ Try creating the user and employee safely
+        try:
+            user = User.objects.create_user(
+                username=username, email=email, password=password
+            )
 
-        serializer = EmployeeSerializer(employee)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+            employee = Employee.objects.create(
+                user=user,
+                name=name,
+                position=data.get("position", "Staff"),
+                date_started=data.get("date_started", "2025-01-01"),
+                restaurant_name=restaurant_name,
+                address=address,
+                email=email,
+            )
+
+            serializer = EmployeeSerializer(employee)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except IntegrityError as e:
+            # 🧩 Handles duplicate email or DB integrity errors
+            if "email" in str(e):
+                return Response(
+                    {"error": "An account with this email already exists."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return Response(
+                {"error": "Database integrity error."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 # -------------------------------------------

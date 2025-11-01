@@ -34,8 +34,9 @@ INSTALLED_APPS = [
     'rewards',
     'donations',
     'subscriptions',
-    'drivers',
     'django_extensions',
+    'drivers.apps.DriversConfig',
+    'users',
 ]
 
 MIDDLEWARE = [

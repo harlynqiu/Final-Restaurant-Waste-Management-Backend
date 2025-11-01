@@ -1,7 +1,8 @@
+# drivers/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
-
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from .models import Driver, DriverLocation
 from .serializers import (
     DriverSerializer,
@@ -13,28 +14,17 @@ from .serializers import (
 # 👤 Driver API
 # -------------------------------------------------
 class DriverViewSet(viewsets.ModelViewSet):
-    """
-    /api/drivers/           GET list of drivers (admin/dispatcher use)
-    /api/drivers/<id>/      GET single driver
-    /api/drivers/<id>/      PATCH driver status (ex: mark as on_pickup)
-    """
     queryset = Driver.objects.filter(is_active=True).select_related("user")
     permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
-        # Read vs Write serializers
         if self.action in ["create", "update", "partial_update"]:
             return DriverWriteSerializer
         return DriverSerializer
 
     def perform_create(self, serializer):
-        # Admin creates driver and links to existing User account
         serializer.save()
 
-    # -------------------------------------------------
-    # GET /api/drivers/me/
-    # Driver checks their own profile
-    # -------------------------------------------------
     @action(detail=False, methods=["get"], url_path="me")
     def me(self, request):
         try:
@@ -47,10 +37,6 @@ class DriverViewSet(viewsets.ModelViewSet):
         data = DriverSerializer(driver).data
         return Response(data, status=status.HTTP_200_OK)
 
-    # -------------------------------------------------
-    # PATCH /api/drivers/me/status/
-    # driver can update their own availability
-    # -------------------------------------------------
     @action(detail=False, methods=["patch"], url_path="me/status")
     def update_my_status(self, request):
         try:
@@ -75,33 +61,85 @@ class DriverViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+        # ✅ /api/drivers/me/
+    @action(detail=False, methods=['get'], url_path='me')
+    def me(self, request):
+        driver = Driver.objects.filter(user=request.user).first()
+        if not driver:
+            return Response({"detail": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(DriverSerializer(driver).data)
+
+    # ✅ /api/drivers/update_location/
+    @action(detail=False, methods=['patch'], url_path='update_location')
+    def update_location(self, request):
+        driver = Driver.objects.filter(user=request.user).first()
+        if not driver:
+            return Response({"detail": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
+        lat = request.data.get("latitude")
+        lng = request.data.get("longitude")
+        if lat and lng:
+            driver.latitude = lat
+            driver.longitude = lng
+            driver.save()
+            return Response({"success": True, "msg": "Location updated"})
+        return Response({"error": "Missing coordinates"}, status=status.HTTP_400_BAD_REQUEST)
+
 
 # -------------------------------------------------
 # 📍 Driver Location API
 # -------------------------------------------------
 class DriverLocationViewSet(viewsets.ModelViewSet):
-    """
-    /api/driver-locations/          GET (admin/dispatcher: see all)
-    /api/driver-locations/          POST (driver sends a ping)
-    /api/driver-locations/<id>/     GET specific ping
-    """
     queryset = DriverLocation.objects.all()
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = DriverLocationSerializer
 
     def perform_create(self, serializer):
-        """
-        When driver sends a new location ping:
-        - Find driver by request.user
-        - Mark old pings as not current
-        - Save the new ping as current
-        """
         try:
             driver = Driver.objects.get(user=self.request.user)
         except Driver.DoesNotExist:
-            raise PermissionError("User is not registered as a driver.")
+            return Response(
+                {"detail": "You are not registered as a driver."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-        # Mark all old current pings as inactive
         DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
-
         serializer.save(driver=driver, is_current=True)
+
+
+# -------------------------------------------------
+# 🛰️ Update Driver's Current Location (for live GPS)
+# -------------------------------------------------
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def update_driver_location(request):
+    user = request.user
+    try:
+        driver = Driver.objects.get(user=user)
+    except Driver.DoesNotExist:
+        return Response(
+            {"detail": "You are not registered as a driver."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    lat = request.data.get("latitude")
+    lng = request.data.get("longitude")
+
+    if lat is None or lng is None:
+        return Response(
+            {"detail": "Latitude and longitude are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
+
+    DriverLocation.objects.create(
+        driver=driver,
+        latitude=lat,
+        longitude=lng,
+        is_current=True
+    )
+
+    return Response(
+        {"message": "Driver location updated successfully."},
+        status=status.HTTP_200_OK,
+    )

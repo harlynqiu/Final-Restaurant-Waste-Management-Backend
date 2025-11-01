@@ -1,8 +1,10 @@
+# drivers/serializers.py
 from rest_framework import serializers
 from .models import Driver, DriverLocation
 
+
 # -------------------------
-# DriverLocation Serializer
+# 📍 Driver Location Serializer
 # -------------------------
 class DriverLocationSerializer(serializers.ModelSerializer):
     driver_name = serializers.CharField(source='driver.full_name', read_only=True)
@@ -18,8 +20,9 @@ class DriverLocationSerializer(serializers.ModelSerializer):
             'is_current',
         ]
 
+
 # -------------------------
-# Driver Serializer
+# 👤 Driver Serializer (read-only)
 # -------------------------
 class DriverSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
@@ -32,19 +35,18 @@ class DriverSerializer(serializers.ModelSerializer):
             "username",
             "full_name",
             "phone_number",
+            "license_number",
             "vehicle_type",
             "plate_number",
             "status",
             "is_active",
             "date_hired",
+            "total_completed_pickups",
+            "rating",
             "current_location",
         ]
 
     def get_current_location(self, obj):
-        """
-        Returns the most recent location ping for this driver.
-        We'll expose this to Flutter so you can show driver pin on map.
-        """
         latest = obj.locations.filter(is_current=True).order_by("-timestamp").first()
         if not latest:
             return None
@@ -56,8 +58,7 @@ class DriverSerializer(serializers.ModelSerializer):
 
 
 # -------------------------
-# Driver Create/Update Serializer
-# (for admin-side create/edit)
+# ✏️ Driver Create/Update Serializer (write mode)
 # -------------------------
 class DriverWriteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -66,6 +67,7 @@ class DriverWriteSerializer(serializers.ModelSerializer):
             "user",
             "full_name",
             "phone_number",
+            "license_number",
             "vehicle_type",
             "plate_number",
             "status",

@@ -29,6 +29,15 @@ class TrashPickup(models.Model):
         related_name="trash_pickups"
     )
 
+    driver = models.ForeignKey(
+    'drivers.Driver',
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name='assigned_pickups'
+    )
+
+
     def __str__(self):
         return f"{self.restaurant_name} ({self.status})"
 

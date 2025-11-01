@@ -2,21 +2,15 @@ from django.db import models
 from django.contrib.auth.models import User
 
 class Employee(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="employee_profile")
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True)
     name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)
-    position = models.CharField(max_length=100)
-    date_started = models.DateField()
-    remarks = models.TextField(blank=True, null=True)
-    restaurant_name = models.CharField(max_length=150, blank=True, null=True)
-    address = models.CharField(max_length=255, blank=True, null=True)
-    status = models.CharField(
-        max_length=20,
-        choices=[("active", "Active"), ("inactive", "Inactive")],
-        default="active",
-    )
-
+    email = models.EmailField(blank=True)
+    position = models.CharField(max_length=100, default="Staff")
+    restaurant_name = models.CharField(max_length=255, blank=True, default="")
+    address = models.TextField(blank=True, default="Davao City")  # ✅ this avoids prompt
+    status = models.CharField(max_length=50, default="active")
+    date_started = models.DateField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.name} ({self.position})"
+        return self.name

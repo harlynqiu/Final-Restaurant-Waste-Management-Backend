@@ -6,8 +6,6 @@ from .models import DonationDrive, DonationParticipation
 # 🌍 Donation Drive Serializer
 # --------------------------------------------------------
 class DonationDriveSerializer(serializers.ModelSerializer):
-    is_ongoing = serializers.ReadOnlyField()
-
     class Meta:
         model = DonationDrive
         fields = [
@@ -15,10 +13,8 @@ class DonationDriveSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "target_item",
-            "start_date",
-            "end_date",
             "is_active",
-            "is_ongoing",
+            "created_at",
         ]
 
 

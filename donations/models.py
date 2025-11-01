@@ -10,8 +10,6 @@ class DonationDrive(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     target_item = models.CharField(max_length=255, help_text="e.g. Surplus Food, Recyclables")
-    start_date = models.DateField(default=timezone.now)
-    end_date = models.DateField()
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -1,17 +1,11 @@
+# subscriptions/urls.py
 from django.urls import path
-from .views import (
-    SubscriptionPlanListView,
-    MySubscriptionView,
-    SubscribeToPlanView,
-    CancelSubscriptionView,
-    MyPaymentsView,
-)
+from . import views
 
 urlpatterns = [
-    path('plans/', SubscriptionPlanListView.as_view(), name='plan-list'),
-    path('mine/', MySubscriptionView.as_view(), name='my-subscription'),
-    path('subscribe/', SubscribeToPlanView.as_view(), name='subscribe-plan'),
-    path('cancel/', CancelSubscriptionView.as_view(), name='cancel-subscription'),
-    path('payments/', MyPaymentsView.as_view(), name='my-payments'),
-    
+    path("plans/", views.SubscriptionPlanListView.as_view(), name="subscription_plans"),
+    path("mine/", views.MySubscriptionView.as_view(), name="my_subscription"),
+    path("subscribe/", views.SubscribeToPlanView.as_view(), name="subscribe_to_plan"),
+    path("cancel/", views.CancelSubscriptionView.as_view(), name="cancel_subscription"),
+    path("payments/", views.MyPaymentsView.as_view(), name="my_payments"),
 ]

@@ -17,8 +17,7 @@ class DonationDriveViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        today = timezone.now().date()
-        return DonationDrive.objects.filter(is_active=True, end_date__gte=today)
+        return DonationDrive.objects.filter(is_active=True)
 
 
 # ------------------------------------------

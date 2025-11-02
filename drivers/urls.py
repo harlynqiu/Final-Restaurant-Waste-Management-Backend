@@ -1,14 +1,12 @@
 # drivers/urls.py
-from rest_framework import routers
-from django.urls import path
-from .views import DriverViewSet, DriverLocationViewSet, update_driver_location
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import DriverViewSet, DriverLocationViewSet
 
-router = routers.DefaultRouter()
-router.register(r"", DriverViewSet, basename="driver")  # ✅ no extra "drivers"
-router.register(r"locations", DriverLocationViewSet, basename="driverlocation")
+router = DefaultRouter()
+router.register(r'', DriverViewSet, basename='driver')
+router.register(r'locations', DriverLocationViewSet, basename='driver-location')
 
 urlpatterns = [
-    path("update_location/", update_driver_location, name="update_driver_location"),  # ✅ no "drivers/" prefix
+    path('', include(router.urls)),
 ]
-
-urlpatterns += router.urls

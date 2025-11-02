@@ -1,8 +1,7 @@
 # drivers/views.py
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
 from .models import Driver, DriverLocation
 from .serializers import (
     DriverSerializer,
@@ -48,6 +47,42 @@ class DriverViewSet(viewsets.ModelViewSet):
         driver.save()
         return Response({"detail": "Status updated.", "status": driver.status}, status=status.HTTP_200_OK)
 
+    # ✅ /api/drivers/update_location/
+    @action(detail=False, methods=['patch'], url_path='update_location')
+    def update_location(self, request):
+        """
+        Update the current driver's latitude and longitude.
+        Creates a new DriverLocation record and marks it as current.
+        """
+        driver = Driver.objects.filter(user=request.user).first()
+        if not driver:
+            return Response({"detail": "Driver not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        lat = request.data.get("latitude")
+        lng = request.data.get("longitude")
+
+        if lat is None or lng is None:
+            return Response({"detail": "Latitude and longitude are required."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Update old locations
+        DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
+
+        # Create new location record
+        DriverLocation.objects.create(
+            driver=driver,
+            latitude=lat,
+            longitude=lng,
+            is_current=True
+        )
+
+        # Update fields on main Driver model for quick access
+        driver.latitude = lat
+        driver.longitude = lng
+        driver.save(update_fields=["latitude", "longitude"])
+
+        return Response({"message": "Driver location updated successfully."}, status=status.HTTP_200_OK)
+
 
 # -------------------------------------------------
 # 📍 Driver Location API
@@ -58,49 +93,11 @@ class DriverLocationViewSet(viewsets.ModelViewSet):
     serializer_class = DriverLocationSerializer
 
     def perform_create(self, serializer):
-        try:
-            driver = Driver.objects.get(user=self.request.user)
-        except Driver.DoesNotExist:
+        driver = Driver.objects.filter(user=self.request.user).first()
+        if not driver:
             return Response({"detail": "You are not registered as a driver."},
                             status=status.HTTP_403_FORBIDDEN)
 
+        # Mark all other locations inactive
         DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
         serializer.save(driver=driver, is_current=True)
-
-
-# -------------------------------------------------
-# 🛰️ Update Driver's Current Location (for live GPS)
-# -------------------------------------------------
-@api_view(["PATCH"])
-@permission_classes([IsAuthenticated])
-def update_driver_location(request):
-    user = request.user
-    try:
-        driver = Driver.objects.get(user=user)
-    except Driver.DoesNotExist:
-        return Response({"detail": "You are not registered as a driver."},
-                        status=status.HTTP_404_NOT_FOUND)
-
-    lat = request.data.get("latitude")
-    lng = request.data.get("longitude")
-
-    if lat is None or lng is None:
-        return Response({"detail": "Latitude and longitude are required."},
-                        status=status.HTTP_400_BAD_REQUEST)
-
-    DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
-
-    DriverLocation.objects.create(
-        driver=driver,
-        latitude=lat,
-        longitude=lng,
-        is_current=True
-    )
-
-    # Optionally store lat/lng directly on the driver model too
-    driver.latitude = lat
-    driver.longitude = lng
-    driver.save(update_fields=["latitude", "longitude"])
-
-    return Response({"message": "Driver location updated successfully."},
-                    status=status.HTTP_200_OK)

@@ -1,18 +1,21 @@
 # employees/views.py
-from rest_framework import viewsets, permissions, status, generics
+from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.auth.models import User
 from .models import Employee
 from .serializers import EmployeeSerializer, EmployeeRegisterSerializer
 
+
 class EmployeeViewSet(viewsets.ModelViewSet):
     queryset = Employee.objects.all().order_by('-id')
     serializer_class = EmployeeSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
-    # ✅ POST /api/employees/register/
-    @action(detail=False, methods=['post'], url_path='register')
+    # --------------------------------------------
+    # 🧾 REGISTER NEW EMPLOYEE
+    # --------------------------------------------
+    @action(detail=False, methods=['post'], url_path='register', permission_classes=[permissions.AllowAny])
     def register(self, request):
         data = request.data
         username = data.get("username")
@@ -25,21 +28,21 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Prevent duplicates
+        # ✅ Prevent duplicate usernames
         if User.objects.filter(username=username).exists():
             return Response(
                 {"error": "Username already exists."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ✅ Create User account
+        # ✅ Create linked User object
         user = User.objects.create_user(username=username, password=password, email=email)
 
-        # ✅ Extract optional coordinates
+        # ✅ Optional coordinates
         latitude = data.get("latitude")
         longitude = data.get("longitude")
 
-        # ✅ Create Employee profile
+        # ✅ Create Employee record
         employee = Employee.objects.create(
             user=user,
             name=data.get("name", username),
@@ -55,13 +58,29 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(employee)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    # ✅ GET /api/employees/me/
-    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    # --------------------------------------------
+    # 👤 GET or PATCH /employees/me/
+    # --------------------------------------------
+    @action(detail=False, methods=["get", "patch"], url_path="me", permission_classes=[permissions.IsAuthenticated])
     def me(self, request):
         try:
             employee = Employee.objects.get(user=request.user)
         except Employee.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Employee profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        serializer = self.get_serializer(employee)
-        return Response(serializer.data)
+        # ✅ GET → return employee profile
+        if request.method == "GET":
+            serializer = self.get_serializer(employee)
+            return Response(serializer.data)
+
+        # ✅ PATCH → allow latitude/longitude and address updates
+        elif request.method == "PATCH":
+            print("📍 Received PATCH /employees/me →", request.data)  # For debugging
+            serializer = self.get_serializer(employee, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

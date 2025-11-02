@@ -15,6 +15,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
             "restaurant_name", "address", "status",
             "latitude", "longitude", "created_at",
         ]
+        read_only_fields = ["id", "username", "email", "created_at"]
 
 
 class EmployeeRegisterSerializer(serializers.ModelSerializer):

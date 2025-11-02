@@ -25,43 +25,7 @@ class DriverViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save()
 
-    @action(detail=False, methods=["get"], url_path="me")
-    def me(self, request):
-        try:
-            driver = Driver.objects.get(user=request.user)
-        except Driver.DoesNotExist:
-            return Response(
-                {"detail": "You are not registered as a driver."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        data = DriverSerializer(driver).data
-        return Response(data, status=status.HTTP_200_OK)
-
-    @action(detail=False, methods=["patch"], url_path="me/status")
-    def update_my_status(self, request):
-        try:
-            driver = Driver.objects.get(user=request.user)
-        except Driver.DoesNotExist:
-            return Response(
-                {"detail": "You are not registered as a driver."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        new_status = request.data.get("status")
-        if new_status not in ["available", "on_pickup", "inactive"]:
-            return Response(
-                {"detail": "Invalid status."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        driver.status = new_status
-        driver.save()
-        return Response(
-            {"detail": "Status updated.", "status": driver.status},
-            status=status.HTTP_200_OK,
-        )
-
-        # ✅ /api/drivers/me/
+    # ✅ /api/drivers/me/
     @action(detail=False, methods=['get'], url_path='me')
     def me(self, request):
         driver = Driver.objects.filter(user=request.user).first()
@@ -69,20 +33,20 @@ class DriverViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(DriverSerializer(driver).data)
 
-    # ✅ /api/drivers/update_location/
-    @action(detail=False, methods=['patch'], url_path='update_location')
-    def update_location(self, request):
+    # ✅ /api/drivers/me/status/
+    @action(detail=False, methods=['patch'], url_path='me/status')
+    def update_my_status(self, request):
         driver = Driver.objects.filter(user=request.user).first()
         if not driver:
             return Response({"detail": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
-        lat = request.data.get("latitude")
-        lng = request.data.get("longitude")
-        if lat and lng:
-            driver.latitude = lat
-            driver.longitude = lng
-            driver.save()
-            return Response({"success": True, "msg": "Location updated"})
-        return Response({"error": "Missing coordinates"}, status=status.HTTP_400_BAD_REQUEST)
+
+        new_status = request.data.get("status")
+        if new_status not in ["available", "on_pickup", "inactive"]:
+            return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+
+        driver.status = new_status
+        driver.save()
+        return Response({"detail": "Status updated.", "status": driver.status}, status=status.HTTP_200_OK)
 
 
 # -------------------------------------------------
@@ -97,10 +61,8 @@ class DriverLocationViewSet(viewsets.ModelViewSet):
         try:
             driver = Driver.objects.get(user=self.request.user)
         except Driver.DoesNotExist:
-            return Response(
-                {"detail": "You are not registered as a driver."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            return Response({"detail": "You are not registered as a driver."},
+                            status=status.HTTP_403_FORBIDDEN)
 
         DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
         serializer.save(driver=driver, is_current=True)
@@ -116,19 +78,15 @@ def update_driver_location(request):
     try:
         driver = Driver.objects.get(user=user)
     except Driver.DoesNotExist:
-        return Response(
-            {"detail": "You are not registered as a driver."},
-            status=status.HTTP_404_NOT_FOUND,
-        )
+        return Response({"detail": "You are not registered as a driver."},
+                        status=status.HTTP_404_NOT_FOUND)
 
     lat = request.data.get("latitude")
     lng = request.data.get("longitude")
 
     if lat is None or lng is None:
-        return Response(
-            {"detail": "Latitude and longitude are required."},
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        return Response({"detail": "Latitude and longitude are required."},
+                        status=status.HTTP_400_BAD_REQUEST)
 
     DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
 
@@ -139,7 +97,10 @@ def update_driver_location(request):
         is_current=True
     )
 
-    return Response(
-        {"message": "Driver location updated successfully."},
-        status=status.HTTP_200_OK,
-    )
+    # Optionally store lat/lng directly on the driver model too
+    driver.latitude = lat
+    driver.longitude = lng
+    driver.save(update_fields=["latitude", "longitude"])
+
+    return Response({"message": "Driver location updated successfully."},
+                    status=status.HTTP_200_OK)

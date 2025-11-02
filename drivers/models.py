@@ -8,7 +8,7 @@ class Driver(models.Model):
         User,
         on_delete=models.CASCADE,
         related_name="driver_profile",
-        null=True, blank=True  # ✅ allow admin to create drivers even if user not selected
+        null=True, blank=True  # ✅ allows creation without user first
     )
     full_name = models.CharField(max_length=255)
     phone_number = models.CharField(max_length=15)
@@ -28,6 +28,10 @@ class Driver(models.Model):
     )
     total_completed_pickups = models.PositiveIntegerField(default=0)
     rating = models.FloatField(default=0.0)
+
+    # ✅ NEW — current live coordinates
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
 
     def __str__(self):
         return f"{self.full_name} ({self.status})"

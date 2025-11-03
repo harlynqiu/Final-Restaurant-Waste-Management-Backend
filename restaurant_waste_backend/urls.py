@@ -4,6 +4,8 @@ from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.routers import DefaultRouter
 from drivers.views import DriverViewSet, DriverLocationViewSet
+from django.conf import settings
+from django.conf.urls.static import static
 
 router = DefaultRouter()
 router.register(r'drivers', DriverViewSet, basename='driver')
@@ -24,4 +26,8 @@ urlpatterns = [
     path('api/employees/', include('employees.urls')),
     path('api/users/', include('users.urls')),
     path('api/drivers/', include('drivers.urls')),
+    path("api/rewards/", include("rewards.urls")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

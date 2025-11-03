@@ -44,18 +44,21 @@ class RewardTransaction(models.Model):
 
 
 # --------------------------------------------
-# 🎟️ Voucher Model
+# 🎟️ Voucher Model (with image)
 # --------------------------------------------
 class Voucher(models.Model):
     code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=100)  # 🆕 readable name
+    description = models.TextField(blank=True, default="")  # 🆕 optional description
     discount_amount = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     points_required = models.PositiveIntegerField(default=0)
+    image = models.ImageField(upload_to='vouchers/', null=True, blank=True)  # 🖼️ image added
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return self.code
+        return f"{self.name} ({self.code})"
 
     def is_valid(self):
         """Check if the voucher is still active and not expired"""

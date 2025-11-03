@@ -33,6 +33,17 @@ class Driver(models.Model):
     latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
 
+    def save(self, *args, **kwargs):
+        if not self.user:
+            # Try to find or create a user automatically based on full_name
+            from django.contrib.auth.models import User
+            username = self.full_name.lower().replace(" ", "_")
+            user, _ = User.objects.get_or_create(username=username)
+            self.user = user
+        super().save(*args, **kwargs)
+
+
+
     def __str__(self):
         return f"{self.full_name} ({self.status})"
 
@@ -47,6 +58,7 @@ class DriverLocation(models.Model):
     longitude = models.DecimalField(max_digits=9, decimal_places=6)
     timestamp = models.DateTimeField(auto_now_add=True)
     is_current = models.BooleanField(default=True)
+
 
     def __str__(self):
         return f"{self.driver.full_name} @ {self.latitude}, {self.longitude}"

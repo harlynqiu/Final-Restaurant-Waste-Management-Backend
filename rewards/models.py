@@ -1,6 +1,7 @@
+# rewards/models.py
 from django.db import models
 from django.contrib.auth.models import User
-
+from django.utils import timezone
 
 
 # --------------------------------------------
@@ -14,7 +15,7 @@ class RewardPoint(models.Model):
         return f"{self.user.username} - {self.points} points"
 
     def add_points(self, amount):
-        """Add or deduct points safely"""
+        """Safely add or deduct points"""
         self.points += amount
         if self.points < 0:
             self.points = 0
@@ -26,8 +27,9 @@ class RewardPoint(models.Model):
 # --------------------------------------------
 class RewardTransaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reward_transactions')
+    # ✅ Use string-based FK to avoid circular import
     pickup = models.ForeignKey(
-        "trash_pickups.TrashPickup",  # ← string-based reference
+        "trash_pickups.TrashPickup",   # ← string reference, no direct import
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -42,7 +44,7 @@ class RewardTransaction(models.Model):
 
 
 # --------------------------------------------
-# 🧾 Voucher History
+# 🎟️ Voucher Model
 # --------------------------------------------
 class Voucher(models.Model):
     code = models.CharField(max_length=50, unique=True)
@@ -55,9 +57,13 @@ class Voucher(models.Model):
         return self.code
 
     def is_valid(self):
-        from django.utils import timezone
+        """Check if the voucher is still active and not expired"""
         return self.is_active and (not self.expires_at or self.expires_at >= timezone.now())
 
+
+# --------------------------------------------
+# 🎁 Reward Redemption Model
+# --------------------------------------------
 class RewardRedemption(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reward_redemptions")
     item_name = models.CharField(max_length=255)

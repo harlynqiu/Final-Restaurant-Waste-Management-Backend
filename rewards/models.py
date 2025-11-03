@@ -49,6 +49,7 @@ class RewardTransaction(models.Model):
 class Voucher(models.Model):
     code = models.CharField(max_length=50, unique=True)
     discount_amount = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    points_required = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)

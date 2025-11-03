@@ -80,6 +80,27 @@ class TrashPickupViewSet(viewsets.ModelViewSet):
             if parsed_date < timezone.now():
                 parsed_date = timezone.now()
             scheduled_date = parsed_date
+        weight_kg = self.request.data.get("weight_kg")
+
+        try:
+            weight = float(weight_kg)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "Invalid weight value."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if weight <= 0:
+            return Response(
+                {"detail": "Weight must be greater than 0 kg."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if weight > 50:
+            return Response(
+                {"detail": "Weight exceeds the 50 kg limit. Please split your waste into smaller pickups."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         serializer.save(
             user=user,
@@ -161,6 +182,9 @@ class TrashPickupViewSet(viewsets.ModelViewSet):
     # ------------------------------------------------
     # ✅ COMPLETE PICKUP (Reward → Restaurant User)
     # ------------------------------------------------
+    # ------------------------------------------------
+    # ✅ COMPLETE PICKUP (Reward → Restaurant User, Weighted Points)
+    # ------------------------------------------------
     @action(detail=True, methods=["patch"], url_path="complete")
     def complete_pickup(self, request, pk=None):
         from rewards.models import RewardPoint, RewardTransaction
@@ -197,14 +221,33 @@ class TrashPickupViewSet(viewsets.ModelViewSet):
                 status=400,
             )
 
-        reward, _ = RewardPoint.objects.get_or_create(user=restaurant_user)
-        reward.add_points(10)
+        # ✅ Calculate reward points based on weight
+        weight = float(pickup.weight_kg or 0)
+        if weight <= 0:
+            points = 0
+        elif weight <= 10:
+            points = 10
+        elif weight <= 20:
+            points = 15
+        elif weight <= 30:
+            points = 20
+        elif weight <= 40:
+            points = 25
+        elif weight <= 50:
+            points = 30
+        else:
+            points = 0  # shouldn't happen due to earlier validation
 
+        # ✅ Add points to restaurant user
+        reward, _ = RewardPoint.objects.get_or_create(user=restaurant_user)
+        reward.add_points(points)
+
+        # ✅ Log the reward transaction
         RewardTransaction.objects.create(
             user=restaurant_user,
             pickup=pickup,
-            points=10,
-            description=f"Pickup #{pickup.id} completed successfully (+10 pts to {restaurant_user.username})",
+            points=points,
+            description=f"Pickup #{pickup.id} completed ({weight} kg, +{points} pts)",
         )
 
         # ✅ Update driver stats
@@ -214,13 +257,13 @@ class TrashPickupViewSet(viewsets.ModelViewSet):
             driver.status = "available"
             driver.save(update_fields=["total_completed_pickups", "status"])
 
-        print(f"🎯 Reward added for restaurant {restaurant_user.username}: now has {reward.points} points")
+        print(f"🎯 Reward added for restaurant {restaurant_user.username}: {points} pts (total {reward.points})")
 
         return Response(
             {
                 "success": True,
-                "message": f"Pickup #{pickup.id} completed. +10 points added to restaurant {restaurant_user.username}.",
-                "points_added": 10,
+                "message": f"Pickup #{pickup.id} completed! {weight} kg collected → +{points} pts.",
+                "points_added": points,
                 "total_points": reward.points,
             },
             status=200,

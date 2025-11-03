@@ -50,27 +50,43 @@ class RedeemVoucherView(APIView):
         voucher = Voucher.objects.filter(id=voucher_id, is_active=True).first()
 
         if not voucher:
-            return Response({"error": "Invalid voucher."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "message": "Invalid voucher."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         reward, _ = RewardPoint.objects.get_or_create(user=request.user)
         if reward.points < voucher.points_required:
-            return Response({"error": "Not enough points."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"success": False, "message": "Not enough points."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # Deduct points
+        # ✅ Deduct points
         reward.add_points(-voucher.points_required)
 
-        # Create redemption and transaction
-        RewardRedemption.objects.create(user=request.user, voucher=voucher)
-        RewardTransaction.objects.create(
+        # ✅ Create redemption (use item_name and points_spent, not voucher FK)
+        RewardRedemption.objects.create(
             user=request.user,
-            voucher=voucher,
-            points=-voucher.points_required,
-            description=f"Redeemed {voucher.name}",
-            transaction_type='redeem'
+            item_name=voucher.code,
+            points_spent=voucher.points_required,
+            status="completed",
         )
 
-        return Response({"success": f"Redeemed {voucher.name}!"}, status=status.HTTP_200_OK)
+        # ✅ Log the transaction
+        RewardTransaction.objects.create(
+            user=request.user,
+            points=-voucher.points_required,
+            description=f"Redeemed {voucher.code}",
+        )
 
+        return Response(
+            {
+                "success": True,
+                "message": f"Voucher '{voucher.code}' redeemed successfully!",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 # 🧾 View Redemption History
 class RewardRedemptionListView(generics.ListAPIView):

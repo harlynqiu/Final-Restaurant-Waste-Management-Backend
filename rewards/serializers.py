@@ -11,13 +11,13 @@ class RewardPointSerializer(serializers.ModelSerializer):
 class RewardTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = RewardTransaction
-        fields = ['points', 'description', 'transaction_type', 'created_at']
+        fields = ['points', 'description', 'created_at']
 
 
 class VoucherSerializer(serializers.ModelSerializer):
     class Meta:
         model = Voucher
-        fields = ['id', 'name', 'description', 'points_required', 'discount_value']
+        fields = ['id', 'code', 'discount_amount', 'points_required', 'is_active', 'created_at', 'expires_at']
 
 
 class RewardRedemptionSerializer(serializers.ModelSerializer):

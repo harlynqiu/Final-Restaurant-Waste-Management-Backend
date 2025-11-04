@@ -8,39 +8,50 @@ from django.utils import timezone
 # 🏆 Reward Points Model
 # --------------------------------------------
 class RewardPoint(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='reward_points')
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='reward_points'
+    )
     points = models.IntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Reward Point"
+        verbose_name_plural = "Reward Points"
 
     def __str__(self):
         return f"{self.user.username} - {self.points} points"
 
-    def add_points(self, amount):
-        """Safely add or deduct points"""
+    def add_points(self, amount: int) -> None:
+        """Safely add or deduct points (floors at 0)."""
         self.points += amount
         if self.points < 0:
             self.points = 0
-        self.save()
+        self.save(update_fields=["points"])
 
 
 # --------------------------------------------
 # 🧾 Reward Transaction History
 # --------------------------------------------
 class RewardTransaction(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reward_transactions')
-    # ✅ Use string-based FK to avoid circular import
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='reward_transactions'
+    )
+    # ✅ String FK to avoid circular import
     pickup = models.ForeignKey(
-        "trash_pickups.TrashPickup",   # ← string reference, no direct import
+        "trash_pickups.TrashPickup",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        related_name="reward_transactions"
+        related_name="reward_transactions",
     )
     points = models.IntegerField()
     description = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        ordering = ["-created_at"]
+
     def __str__(self):
-        return f"{self.user.username} - {self.points} pts - {self.description}"
+        return f"{self.user.username} - {self.points} pts - {self.description or 'Transaction'}"
 
 
 # --------------------------------------------
@@ -48,20 +59,23 @@ class RewardTransaction(models.Model):
 # --------------------------------------------
 class Voucher(models.Model):
     code = models.CharField(max_length=50, unique=True)
-    name = models.CharField(max_length=100)  # 🆕 readable name
-    description = models.TextField(blank=True, default="")  # 🆕 optional description
+    name = models.CharField(max_length=100)                      # Readable name
+    description = models.TextField(blank=True, default="")       # Optional description
     discount_amount = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     points_required = models.PositiveIntegerField(default=0)
-    image = models.ImageField(upload_to='vouchers/', null=True, blank=True)  # 🖼️ image added
+    image = models.ImageField(upload_to='vouchers/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
+    class Meta:
+        ordering = ["points_required", "-created_at"]
+
     def __str__(self):
         return f"{self.name} ({self.code})"
 
-    def is_valid(self):
-        """Check if the voucher is still active and not expired"""
+    def is_valid(self) -> bool:
+        """Check if voucher is active and not expired."""
         return self.is_active and (not self.expires_at or self.expires_at >= timezone.now())
 
 
@@ -69,10 +83,29 @@ class Voucher(models.Model):
 # 🎁 Reward Redemption Model
 # --------------------------------------------
 class RewardRedemption(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reward_redemptions")
-    item_name = models.CharField(max_length=255)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="reward_redemptions"
+    )
+
+    # ✅ Link to the actual voucher (recommended)
+    voucher = models.ForeignKey(
+        Voucher,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="redemptions",
+        help_text="Voucher at the time of redemption (nullable if deleted).",
+    )
+
+    # ✅ Keep a snapshot name for history/readability (don’t rely solely on FK)
+    item_name = models.CharField(
+        max_length=255,
+        help_text="Human-friendly name snapshot at redemption time (e.g., '₱50 Discount Voucher').",
+    )
+
     points_spent = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
+
     status = models.CharField(
         max_length=20,
         choices=[
@@ -84,5 +117,36 @@ class RewardRedemption(models.Model):
         default="pending",
     )
 
+    # ✅ Whether the redeemed reward has been used/consumed by the user
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["is_used"]),
+        ]
+
     def __str__(self):
-        return f"{self.user.username} - {self.item_name} ({self.status})"
+        base = self.item_name or (self.voucher.name if self.voucher else "Reward")
+        return f"{self.user.username} - {base} [{self.status}]"
+
+    # Helper methods
+    def mark_used(self) -> None:
+        """Mark the redemption as used."""
+        if not self.is_used:
+            self.is_used = True
+            self.save(update_fields=["is_used"])
+
+    @property
+    def display_name(self) -> str:
+        """Prefer saved snapshot; fallback to linked voucher name/code."""
+        if self.item_name:
+            return self.item_name
+        if self.voucher:
+            return self.voucher.name or self.voucher.code
+        return "Reward"
+
+    def can_be_used(self) -> bool:
+        """Simple gate: completed and not yet used."""
+        return self.status == "completed" and not self.is_used

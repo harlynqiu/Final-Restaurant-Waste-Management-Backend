@@ -12,9 +12,22 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     serializer_class = EmployeeSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
-    # --------------------------------------------
-    # 🧾 REGISTER NEW EMPLOYEE
-    # --------------------------------------------
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.is_authenticated:
+            try:
+                employee = Employee.objects.get(user=user)
+                restaurant_name = employee.restaurant_name
+                return Employee.objects.filter(
+                    restaurant_name=restaurant_name
+                ).order_by('-id')
+            except Employee.DoesNotExist:
+                return Employee.objects.all().order_by('-id')
+        else:
+            return Employee.objects.none()
+        
+    # --------------REGISTER NEW EMPLOYEE ------------------------------
     @action(detail=False, methods=['post'], url_path='register', permission_classes=[permissions.AllowAny])
     def register(self, request):
         data = request.data
@@ -27,22 +40,18 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 {"error": "Username and password are required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # ✅ Prevent duplicate usernames
+        
         if User.objects.filter(username=username).exists():
             return Response(
                 {"error": "Username already exists."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ✅ Create linked User object
         user = User.objects.create_user(username=username, password=password, email=email)
 
-        # ✅ Optional coordinates
         latitude = data.get("latitude")
         longitude = data.get("longitude")
 
-        # ✅ Create Employee record
         employee = Employee.objects.create(
             user=user,
             name=data.get("name", username),
@@ -71,14 +80,12 @@ class EmployeeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # ✅ GET → return employee profile
         if request.method == "GET":
             serializer = self.get_serializer(employee)
             return Response(serializer.data)
 
-        # ✅ PATCH → allow latitude/longitude and address updates
         elif request.method == "PATCH":
-            print("📍 Received PATCH /employees/me →", request.data)  # For debugging
+            print(" Received PATCH /employees/me →", request.data)  # For debugging
             serializer = self.get_serializer(employee, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()

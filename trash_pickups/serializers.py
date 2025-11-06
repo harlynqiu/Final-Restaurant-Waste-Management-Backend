@@ -4,24 +4,17 @@ from .models import TrashPickup
 from donations.models import DonationDrive
 from drivers.models import Driver
 
-
 class TrashPickupSerializer(serializers.ModelSerializer):
     donation_drive_title = serializers.ReadOnlyField(source='donation_drive.title')
     driver_name = serializers.ReadOnlyField(source='driver.full_name', default=None)
-
-    # ✅ Allow only donation drive to be submitted
     donation_drive = serializers.PrimaryKeyRelatedField(
         queryset=DonationDrive.objects.all(),
         required=False,
         allow_null=True
     )
-
-    # ✅ Driver is read-only and returns only driver ID, NOT Driver object
     driver = serializers.SerializerMethodField(read_only=True)
-
     def get_driver(self, obj):
         return obj.driver.id if obj.driver else None
-
     class Meta:
         model = TrashPickup
         fields = '__all__'

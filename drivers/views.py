@@ -9,9 +9,6 @@ from .serializers import (
     DriverLocationSerializer,
 )
 
-# -------------------------------------------------
-# 👤 Driver API
-# -------------------------------------------------
 class DriverViewSet(viewsets.ModelViewSet):
     queryset = Driver.objects.filter(is_active=True).select_related("user")
     permission_classes = [permissions.IsAuthenticated]
@@ -20,11 +17,10 @@ class DriverViewSet(viewsets.ModelViewSet):
         if self.action in ["create", "update", "partial_update"]:
             return DriverWriteSerializer
         return DriverSerializer
-
+    
     def perform_create(self, serializer):
         serializer.save()
 
-    # ✅ /api/drivers/me/
     @action(detail=False, methods=['get'], url_path='me')
     def me(self, request):
         driver = Driver.objects.filter(user=request.user).first()
@@ -32,7 +28,6 @@ class DriverViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Driver not found"}, status=status.HTTP_404_NOT_FOUND)
         return Response(DriverSerializer(driver).data)
 
-    # ✅ /api/drivers/me/status/
     @action(detail=False, methods=['patch'], url_path='me/status')
     def update_my_status(self, request):
         driver = Driver.objects.filter(user=request.user).first()
@@ -47,7 +42,6 @@ class DriverViewSet(viewsets.ModelViewSet):
         driver.save()
         return Response({"detail": "Status updated.", "status": driver.status}, status=status.HTTP_200_OK)
 
-    # ✅ /api/drivers/update_location/
     @action(detail=False, methods=['patch'], url_path='update_location')
     def update_location(self, request):
         """
@@ -65,10 +59,8 @@ class DriverViewSet(viewsets.ModelViewSet):
             return Response({"detail": "Latitude and longitude are required."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # Update old locations
         DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
 
-        # Create new location record
         DriverLocation.objects.create(
             driver=driver,
             latitude=lat,
@@ -76,17 +68,12 @@ class DriverViewSet(viewsets.ModelViewSet):
             is_current=True
         )
 
-        # Update fields on main Driver model for quick access
         driver.latitude = lat
         driver.longitude = lng
         driver.save(update_fields=["latitude", "longitude"])
 
         return Response({"message": "Driver location updated successfully."}, status=status.HTTP_200_OK)
 
-
-# -------------------------------------------------
-# 📍 Driver Location API
-# -------------------------------------------------
 class DriverLocationViewSet(viewsets.ModelViewSet):
     queryset = DriverLocation.objects.all()
     permission_classes = [permissions.IsAuthenticated]
@@ -98,7 +85,6 @@ class DriverLocationViewSet(viewsets.ModelViewSet):
             return Response({"detail": "You are not registered as a driver."},
                             status=status.HTTP_403_FORBIDDEN)
 
-        # Mark all other locations inactive
         DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
         serializer.save(driver=driver, is_current=True)
 

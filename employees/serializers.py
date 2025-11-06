@@ -18,7 +18,6 @@ class EmployeeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "status"]
 
-
 class EmployeeRegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Employee

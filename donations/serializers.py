@@ -2,9 +2,6 @@ from rest_framework import serializers
 from .models import DonationDrive, DonationParticipation
 
 
-# --------------------------------------------------------
-# 🌍 Donation Drive Serializer
-# --------------------------------------------------------
 class DonationDriveSerializer(serializers.ModelSerializer):
     class Meta:
         model = DonationDrive
@@ -17,10 +14,6 @@ class DonationDriveSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
-
-# --------------------------------------------------------
-# 🤝 Donation Participation Serializer
-# --------------------------------------------------------
 class DonationParticipationSerializer(serializers.ModelSerializer):
     drive_title = serializers.CharField(source="drive.title", read_only=True)
     drive_description = serializers.CharField(source="drive.description", read_only=True)

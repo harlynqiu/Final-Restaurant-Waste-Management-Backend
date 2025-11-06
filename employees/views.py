@@ -11,7 +11,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # ✅ Only employees belonging to this owner 
         try:
             owner = self.request.user.owner_profile
         except OwnerProfile.DoesNotExist:
@@ -40,9 +39,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             address=owner.address,
         )
 
-
-
-    # ✅ FIXED: Return ALL employees under this owner
     @action(detail=False, methods=["get"], url_path="me")
     def me(self, request):
         try:
@@ -55,7 +51,6 @@ class EmployeeViewSet(viewsets.ModelViewSet):
         if not employees.exists():
             return Response({"detail": "No employees"}, status=404)
 
-        # ✅ Return ONLY THE FIRST EMPLOYEE
         emp = employees.first()
 
         return Response(EmployeeSerializer(emp).data)

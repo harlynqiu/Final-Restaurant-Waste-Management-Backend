@@ -2,10 +2,6 @@
 from rest_framework import serializers
 from .models import Driver, DriverLocation
 
-
-# -------------------------
-# 📍 Driver Location Serializer
-# -------------------------
 class DriverLocationSerializer(serializers.ModelSerializer):
     driver_name = serializers.CharField(source='driver.full_name', read_only=True)
 
@@ -20,10 +16,6 @@ class DriverLocationSerializer(serializers.ModelSerializer):
             'is_current',
         ]
 
-
-# -------------------------
-# 👤 Driver Serializer (read-only)
-# -------------------------
 class DriverSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     current_location = serializers.SerializerMethodField()
@@ -56,10 +48,6 @@ class DriverSerializer(serializers.ModelSerializer):
             "timestamp": latest.timestamp,
         }
 
-
-# -------------------------
-# ✏️ Driver Create/Update Serializer (write mode)
-# -------------------------
 class DriverWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Driver

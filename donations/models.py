@@ -2,14 +2,17 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-
-# --------------------------------------------------------
-# 🌍 Donation Drive (public campaigns)
-# --------------------------------------------------------
 class DonationDrive(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
+    waste_type = models.CharField(
+        max_length=50,
+        help_text="Type of waste this drive collects (e.g. Food, Plastic, Oil)",
+        default=""
+    )
     target_item = models.CharField(max_length=255, help_text="e.g. Surplus Food, Recyclables")
+    start_date = models.DateField(default=timezone.now)
+    end_date = models.DateField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -18,14 +21,13 @@ class DonationDrive(models.Model):
 
     @property
     def is_ongoing(self):
-        """Automatically mark active if within start/end date."""
         now = timezone.now().date()
-        return self.start_date <= now <= self.end_date and self.is_active
+        return (
+            self.is_active and
+            self.start_date <= now and
+            (self.end_date is None or now <= self.end_date)
+        )
 
-
-# --------------------------------------------------------
-# 🤝 Restaurant Participation / Donation Entry
-# --------------------------------------------------------
 class DonationParticipation(models.Model):
     STATUS_CHOICES = [
         ("pending", "Pending"),
@@ -37,7 +39,7 @@ class DonationParticipation(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="donations")
     drive = models.ForeignKey(DonationDrive, on_delete=models.CASCADE, related_name="participants")
     donated_item = models.CharField(max_length=255)
-    quantity = models.DecimalField(max_digits=8, decimal_places=2, help_text="e.g. 5.0 kg")
+    quantity = models.DecimalField(max_digits=8, decimal_places=2)
     remarks = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -50,14 +52,13 @@ class DonationParticipation(models.Model):
         self.status = "completed"
         self.save()
 
-        # 🏆 Lazy import to avoid circular dependency
         try:
-            from rewards.models import RewardPoint  # 👈 import inside method
+            from rewards.models import RewardPoint
             reward, _ = RewardPoint.objects.get_or_create(user=self.user)
             reward.add_points(
-                amount=20,  # 🎁 Default reward for each donation
+                amount=20,
                 description=f"Donation completed for {self.drive.title}",
                 transaction_type="earn",
             )
         except Exception as e:
-            print("⚠️ Error awarding reward points:", e)
+            print(" Error awarding reward points:", e)

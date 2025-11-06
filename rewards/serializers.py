@@ -1,28 +1,16 @@
 from rest_framework import serializers
 from .models import RewardPoint, RewardTransaction, Voucher, RewardRedemption
 
-
-# --------------------------------------------
-# 🏆 Reward Points Serializer
-# --------------------------------------------
 class RewardPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = RewardPoint
         fields = ['points']
 
-
-# --------------------------------------------
-# 🧾 Reward Transaction Serializer
-# --------------------------------------------
 class RewardTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = RewardTransaction
         fields = ['points', 'description', 'created_at']
 
-
-# --------------------------------------------
-# 🎟️ Voucher Serializer (with full image URL)
-# --------------------------------------------
 class VoucherSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
 
@@ -47,10 +35,6 @@ class VoucherSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.image.url) if request else obj.image.url
         return None
 
-
-# --------------------------------------------
-# 🎁 Reward Redemption Serializer (with nested voucher)
-# --------------------------------------------
 class RewardRedemptionSerializer(serializers.ModelSerializer):
     voucher = VoucherSerializer(read_only=True)
 

@@ -7,7 +7,6 @@ from .views import (
     RewardRedemptionListView,
     MyRewardsListView
 )
-
 urlpatterns = [
     path('points/', RewardPointView.as_view(), name='reward-points'),
     path('transactions/', RewardTransactionListView.as_view(), name='reward-transactions'),

@@ -5,4 +5,4 @@ class DriversConfig(AppConfig):
     name = 'drivers'
 
     def ready(self):
-        import drivers.signals  # ✅ this ensures signals are loaded
+        import drivers.signals

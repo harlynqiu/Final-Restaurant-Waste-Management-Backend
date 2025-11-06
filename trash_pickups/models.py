@@ -14,7 +14,6 @@ class TrashPickup(models.Model):
         ("cancelled", "Cancelled"),
     ]
 
-    # Restaurant User (Owner)
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="trash_pickups"
     )
@@ -53,7 +52,7 @@ class TrashPickup(models.Model):
     )
 
     longitude = models.DecimalField(
-        max_digits=11,  # e.g., 123.1234567 (more digits before the decimal)
+        max_digits=11,  
         decimal_places=7,
         null=True,
         blank=True
@@ -65,10 +64,6 @@ class TrashPickup(models.Model):
     class Meta:
         ordering = ["-created_at"]
 
-
-# --------------------------------------------------------
-# 🎁 Voucher Model
-# --------------------------------------------------------
 class Voucher(models.Model):
     """
     Represents a discount voucher redeemable using reward points.
@@ -82,10 +77,6 @@ class Voucher(models.Model):
     def __str__(self):
         return f"{self.name} - {self.points_required} pts"
 
-
-# --------------------------------------------------------
-# 🎟️ Reward Redemption Model
-# --------------------------------------------------------
 class RewardRedemption(models.Model):
     """
     Tracks each redemption of a voucher by a user.

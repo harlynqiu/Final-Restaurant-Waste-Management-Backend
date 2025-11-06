@@ -3,10 +3,6 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-
-# --------------------------------------------
-# 🏆 Reward Points Model
-# --------------------------------------------
 class RewardPoint(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name='reward_points'
@@ -27,15 +23,11 @@ class RewardPoint(models.Model):
             self.points = 0
         self.save(update_fields=["points"])
 
-
-# --------------------------------------------
-# 🧾 Reward Transaction History
-# --------------------------------------------
 class RewardTransaction(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='reward_transactions'
     )
-    # ✅ String FK to avoid circular import
+   
     pickup = models.ForeignKey(
         "trash_pickups.TrashPickup",
         on_delete=models.CASCADE,
@@ -53,10 +45,6 @@ class RewardTransaction(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.points} pts - {self.description or 'Transaction'}"
 
-
-# --------------------------------------------
-# 🎟️ Voucher Model (with image)
-# --------------------------------------------
 class Voucher(models.Model):
     code = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=100)                      # Readable name
@@ -78,16 +66,11 @@ class Voucher(models.Model):
         """Check if voucher is active and not expired."""
         return self.is_active and (not self.expires_at or self.expires_at >= timezone.now())
 
-
-# --------------------------------------------
-# 🎁 Reward Redemption Model
-# --------------------------------------------
 class RewardRedemption(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="reward_redemptions"
     )
 
-    # ✅ Link to the actual voucher (recommended)
     voucher = models.ForeignKey(
         Voucher,
         on_delete=models.SET_NULL,
@@ -97,7 +80,6 @@ class RewardRedemption(models.Model):
         help_text="Voucher at the time of redemption (nullable if deleted).",
     )
 
-    # ✅ Keep a snapshot name for history/readability (don’t rely solely on FK)
     item_name = models.CharField(
         max_length=255,
         help_text="Human-friendly name snapshot at redemption time (e.g., '₱50 Discount Voucher').",
@@ -117,7 +99,6 @@ class RewardRedemption(models.Model):
         default="pending",
     )
 
-    # ✅ Whether the redeemed reward has been used/consumed by the user
     is_used = models.BooleanField(default=False)
 
     class Meta:
@@ -131,14 +112,12 @@ class RewardRedemption(models.Model):
         base = self.item_name or (self.voucher.name if self.voucher else "Reward")
         return f"{self.user.username} - {base} [{self.status}]"
 
-    # Helper methods
     def mark_used(self) -> None:
         """Mark the redemption as used."""
         if not self.is_used:
             self.is_used = True
             self.save(update_fields=["is_used"])
 
-    @property
     def display_name(self) -> str:
         """Prefer saved snapshot; fallback to linked voucher name/code."""
         if self.item_name:

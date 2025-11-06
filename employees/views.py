@@ -1,93 +1,61 @@
-# employees/views.py
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.contrib.auth.models import User
+from rest_framework.decorators import action
+
 from .models import Employee
 from .serializers import EmployeeSerializer, EmployeeRegisterSerializer
+from accounts.models import OwnerProfile
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    queryset = Employee.objects.all().order_by('-id')
-    serializer_class = EmployeeSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-
-        if user.is_authenticated:
-            try:
-                employee = Employee.objects.get(user=user)
-                restaurant_name = employee.restaurant_name
-                return Employee.objects.filter(
-                    restaurant_name=restaurant_name
-                ).order_by('-id')
-            except Employee.DoesNotExist:
-                return Employee.objects.all().order_by('-id')
-        else:
+        # ✅ Only employees belonging to this owner 
+        try:
+            owner = self.request.user.owner_profile
+        except OwnerProfile.DoesNotExist:
             return Employee.objects.none()
-        
-    # --------------REGISTER NEW EMPLOYEE ------------------------------
-    @action(detail=False, methods=['post'], url_path='register', permission_classes=[permissions.AllowAny])
-    def register(self, request):
-        data = request.data
-        username = data.get("username")
-        email = data.get("email", "")
-        password = data.get("password", "default123")
 
-        if not username or not password:
-            return Response(
-                {"error": "Username and password are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        
-        if User.objects.filter(username=username).exists():
-            return Response(
-                {"error": "Username already exists."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        return Employee.objects.filter(owner=owner).order_by("-id")
 
-        user = User.objects.create_user(username=username, password=password, email=email)
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return EmployeeRegisterSerializer
+        return EmployeeSerializer
 
-        latitude = data.get("latitude")
-        longitude = data.get("longitude")
+    def perform_create(self, serializer):
+        owner = self.request.user.owner_profile
 
-        employee = Employee.objects.create(
-            user=user,
-            name=data.get("name", username),
-            email=email,
-            position=data.get("position", "Staff"),
-            restaurant_name=data.get("restaurant_name", ""),
-            address=data.get("address", ""),
-            status="active",
-            latitude=latitude if latitude not in [None, ""] else None,
-            longitude=longitude if longitude not in [None, ""] else None,
+        serializer.save(
+            owner=owner,
+            restaurant_name=owner.restaurant_name,
+            address=owner.address
         )
 
-        serializer = self.get_serializer(employee)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    def perform_update(self, serializer):
+        owner = self.request.user.owner_profile
+        serializer.save(
+            restaurant_name=owner.restaurant_name,
+            address=owner.address,
+        )
 
-    # --------------------------------------------
-    # 👤 GET or PATCH /employees/me/
-    # --------------------------------------------
-    @action(detail=False, methods=["get", "patch"], url_path="me", permission_classes=[permissions.IsAuthenticated])
+
+
+    # ✅ FIXED: Return ALL employees under this owner
+    @action(detail=False, methods=["get"], url_path="me")
     def me(self, request):
         try:
-            employee = Employee.objects.get(user=request.user)
-        except Employee.DoesNotExist:
-            return Response(
-                {"detail": "Employee profile not found."},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            owner = request.user.owner_profile
+        except OwnerProfile.DoesNotExist:
+            return Response({"detail": "Not an owner"}, status=404)
 
-        if request.method == "GET":
-            serializer = self.get_serializer(employee)
-            return Response(serializer.data)
+        employees = Employee.objects.filter(owner=owner)
 
-        elif request.method == "PATCH":
-            print(" Received PATCH /employees/me →", request.data)  # For debugging
-            serializer = self.get_serializer(employee, data=request.data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not employees.exists():
+            return Response({"detail": "No employees"}, status=404)
+
+        # ✅ Return ONLY THE FIRST EMPLOYEE
+        emp = employees.first()
+
+        return Response(EmployeeSerializer(emp).data)

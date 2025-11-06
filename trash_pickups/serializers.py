@@ -9,37 +9,34 @@ class TrashPickupSerializer(serializers.ModelSerializer):
     donation_drive_title = serializers.ReadOnlyField(source='donation_drive.title')
     driver_name = serializers.ReadOnlyField(source='driver.full_name', default=None)
 
+    # ✅ Allow only donation drive to be submitted
     donation_drive = serializers.PrimaryKeyRelatedField(
         queryset=DonationDrive.objects.all(),
         required=False,
         allow_null=True
     )
-    driver = serializers.PrimaryKeyRelatedField(
-        queryset=Driver.objects.all(),
-        required=False,
-        allow_null=True
-    )
+
+    # ✅ Driver is read-only and returns only driver ID, NOT Driver object
+    driver = serializers.SerializerMethodField(read_only=True)
+
+    def get_driver(self, obj):
+        return obj.driver.id if obj.driver else None
 
     class Meta:
         model = TrashPickup
         fields = '__all__'
-        read_only_fields = ['user', 'created_at']
+        read_only_fields = ["id", "user", "created_at", "status"]
 
-    # ✅ VALIDATE: Donation drive must be active
     def validate_donation_drive(self, value):
         if value and not value.is_active:
             raise serializers.ValidationError("Selected donation drive is not active.")
         return value
 
-    # ✅ VALIDATE: Weight must be between 1 and 50 kg
     def validate_weight_kg(self, value):
-        """Ensure trash weight is realistic for motorcycle pickup."""
         if value is None:
             raise serializers.ValidationError("Weight is required.")
         if value <= 0:
             raise serializers.ValidationError("Weight must be greater than 0 kg.")
         if value > 50:
-            raise serializers.ValidationError(
-                "Weight exceeds the 50 kg limit. Please split your waste into smaller pickups."
-            )
+            raise serializers.ValidationError("Weight exceeds 50 kg.")
         return value

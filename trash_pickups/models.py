@@ -6,106 +6,64 @@ from donations.models import DonationDrive
 
 
 class TrashPickup(models.Model):
-    """
-    Represents a waste pickup request from a restaurant.
-    """
-
     STATUS_CHOICES = [
-        ("pending", "Pending"),          # Created by restaurant
-        ("accepted", "Accepted"),        # Driver accepted
-        ("in_progress", "In Progress"),  # Driver currently picking up
-        ("completed", "Completed"),      # Finished
-        ("cancelled", "Cancelled"),      # Cancelled by user/admin
+        ("pending", "Pending"),
+        ("accepted", "Accepted"),
+        ("in_progress", "In Progress"),
+        ("completed", "Completed"),
+        ("cancelled", "Cancelled"),
     ]
 
-    # ----------------------------------------------------
-    # 🔹 Restaurant Info
-    # ----------------------------------------------------
+    # Restaurant User (Owner)
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="trash_pickups"
     )
-    restaurant_name = models.CharField(
-        max_length=255, help_text="Name of the restaurant that requested the pickup"
-    )
-    pickup_address = models.CharField(
-        max_length=255, help_text="Address where the driver should pick up the waste"
-    )
 
-    # ----------------------------------------------------
-    # 🔹 Waste Details
-    # ----------------------------------------------------
+    restaurant_name = models.CharField(max_length=255)
+    pickup_address = models.CharField(max_length=255)
+
     waste_type = models.CharField(max_length=50)
     weight_kg = models.DecimalField(max_digits=6, decimal_places=2)
+
     scheduled_date = models.DateTimeField(default=timezone.now)
-    status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default="pending"
-    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # ----------------------------------------------------
-    # 🔹 Optional Donation Drive
-    # ----------------------------------------------------
     donation_drive = models.ForeignKey(
         DonationDrive,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="trash_pickups",
-        help_text="If the pickup contributes to a donation drive",
     )
 
-    # ----------------------------------------------------
-    # 🔹 Assigned Driver
-    # ----------------------------------------------------
     driver = models.ForeignKey(
-        'drivers.Driver',
+        "drivers.Driver",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='assigned_pickups'
+        related_name="assigned_pickups",
     )
 
-    # ----------------------------------------------------
-    # 🔹 Additional Data (Optional Fields)
-    # ----------------------------------------------------
     latitude = models.DecimalField(
-        max_digits=9,
-        decimal_places=6,
+        max_digits=10,  # e.g., 123.1234567
+        decimal_places=7,
         null=True,
-        blank=True,
-        help_text="Latitude of the pickup location"
-    )
-    longitude = models.DecimalField(
-        max_digits=9,
-        decimal_places=6,
-        null=True,
-        blank=True,
-        help_text="Longitude of the pickup location"
+        blank=True
     )
 
-    # ----------------------------------------------------
-    # 🔹 Custom Save Logic
-    # ----------------------------------------------------
-    def save(self, *args, **kwargs):
-        if not self.latitude or not self.longitude:
-            from employees.models import Employee
-            try:
-                emp = Employee.objects.get(user=self.user)
-                if emp.latitude and emp.longitude:
-                    self.latitude = emp.latitude
-                    self.longitude = emp.longitude
-            except Employee.DoesNotExist:
-                pass
-        super().save(*args, **kwargs)
+    longitude = models.DecimalField(
+        max_digits=11,  # e.g., 123.1234567 (more digits before the decimal)
+        decimal_places=7,
+        null=True,
+        blank=True
+    )
 
     def __str__(self):
-        driver_name = self.driver.full_name if self.driver else "Unassigned"
-        return f"{self.restaurant_name} ({self.status}) - Driver: {driver_name}"
+        return f"Pickup #{self.id} - {self.restaurant_name} ({self.status})"
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "Trash Pickup"
-        verbose_name_plural = "Trash Pickups"
 
 
 # --------------------------------------------------------

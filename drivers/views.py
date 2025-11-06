@@ -101,3 +101,4 @@ class DriverLocationViewSet(viewsets.ModelViewSet):
         # Mark all other locations inactive
         DriverLocation.objects.filter(driver=driver, is_current=True).update(is_current=False)
         serializer.save(driver=driver, is_current=True)
+
